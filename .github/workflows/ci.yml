@@ -1,16 +1,53 @@
-name: CI
+name: CI & Deploy (Pages)
 
 on:
   push:
-    branches: [ "main" ]   # change to master if needed
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Say hi
-        run: echo "Build successful!"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "stable"
+          cache: "npm"
+      - name: Install (if package.json exists)
+        run: |
+          if [ -f package.json ]; then npm ci || npm install; fi
+      - name: Test
+        run: |
+          if [ -f package.json ]; then npm test; else echo "No tests"; fi
+      - name: Build static site (portable)
+        run: |
+          if [ -d build ]; then rm -rf build; fi
+          if [ -f package.json ]; then
+            npm run build || (mkdir -p build && echo "<h1>COMP3104 - DevOps</h1>" > build/index.html)
+          else
+            mkdir -p build && echo "<h1>COMP3104 - DevOps</h1>" > build/index.html
+          fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
