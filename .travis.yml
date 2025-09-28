@@ -1,6 +1,18 @@
-language: java
-jdk:
-  - openjdk11
+language: node_js
+node_js:
+  - "stable"
 
+# run your fake test and build the static site
 script:
-  - echo "Build successful!"
+  - npm ci || npm install
+  - npm test
+  - npm run build
+
+# publish the build/ folder to gh-pages
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  local_dir: build
+  on:
+    branch: main
